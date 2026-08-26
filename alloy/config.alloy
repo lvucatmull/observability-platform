@@ -1,0 +1,155 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// Docker containers on this daemon are discovered automatically.
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Low-cardinality labels form the shared query contract.
+discovery.relabel "docker_logs" {
+  targets = []
+
+  // Avoid a feedback loop where Grafana query logs become application errors.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "observability-platform"
+    action        = "drop"
+  }
+
+  rule {
+    target_label = "project"
+    replacement  = "docker"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "(.+)"
+    target_label  = "project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_observability_project"]
+    regex         = "(.+)"
+    target_label  = "project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_observability_service"]
+    regex         = "(.+)"
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "environment"
+    replacement  = "local"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_observability_environment"]
+    regex         = "(.+)"
+    target_label  = "environment"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "local" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.local.targets
+  labels        = { source = "docker" }
+  relabel_rules = discovery.relabel.docker_logs.rules
+  forward_to    = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  forward_to = [loki.secretfilter.docker.receiver]
+
+  stage.decolorize {}
+
+  stage.regex {
+    expression         = "(?P<level>TRACE|DEBUG|INFO|WARN|ERROR|FATAL|CRITICAL)"
+    labels_from_groups = true
+  }
+}
+
+// A defense-in-depth filter for console logs. Applications still own redaction.
+loki.secretfilter "docker" {
+  forward_to      = [loki.write.local.receiver]
+  redact_with     = "<REDACTED:$SECRET_NAME>"
+  drop_on_timeout = true
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Desktop, host-native, and remote applications can use standard OTLP.
+otelcol.receiver.otlp "applications" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    logs = [otelcol.processor.transform.normalize_logs.input]
+  }
+}
+
+otelcol.processor.transform "normalize_logs" {
+  error_mode = "ignore"
+
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["project"], attributes["service.namespace"]) where attributes["project"] == nil and attributes["service.namespace"] != nil`,
+      `set(attributes["project"], "unclassified") where attributes["project"] == nil`,
+      `set(attributes["service"], attributes["service.name"]) where attributes["service"] == nil and attributes["service.name"] != nil`,
+      `set(attributes["service"], "unknown-service") where attributes["service"] == nil`,
+      `set(attributes["environment"], attributes["deployment.environment.name"]) where attributes["environment"] == nil and attributes["deployment.environment.name"] != nil`,
+      `set(attributes["environment"], "unknown") where attributes["environment"] == nil`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.batch.logs.input]
+  }
+}
+
+otelcol.processor.batch "logs" {
+  timeout         = "1s"
+  send_batch_size = 512
+
+  output {
+    logs = [otelcol.exporter.otlphttp.loki.input]
+  }
+}
+
+otelcol.exporter.otlphttp "loki" {
+  client {
+    endpoint = "http://loki:3100/otlp"
+  }
+}

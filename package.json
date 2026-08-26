@@ -1,0 +1,20 @@
+{
+  "name": "observability-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "security:check": "node scripts/security-check.mjs",
+    "validate": "node scripts/validate-config.mjs",
+    "test": "node --test tests/*.test.mjs && npm run security:check && npm run validate",
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "emit": "node scripts/emit-otlp-log.mjs",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

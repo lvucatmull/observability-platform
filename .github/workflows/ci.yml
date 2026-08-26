@@ -1,0 +1,40 @@
+name: Observability platform CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  config-and-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate isolated CI configuration
+        run: npm run setup
+
+      - name: Validate contracts and configuration
+        run: npm test
+
+      - name: Start the stack
+        run: docker compose up -d
+
+      - name: Verify ingestion and provisioned dashboard
+        run: npm run smoke
+
+      - name: Capture service logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
