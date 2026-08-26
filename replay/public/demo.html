@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Replay capture demo</title>
+    <link rel="stylesheet" href="/demo.css" />
+  </head>
+  <body>
+    <main>
+      <header><strong>MYL</strong><span>Capture demo</span></header>
+      <section>
+        <nav aria-label="Issue views">
+          <button class="active">Issues</button><button>Cycles</button><button>Projects</button>
+        </nav>
+        <article>
+          <p id="session-status">Starting private replay…</p>
+          <h1>Issue triage</h1>
+          <label>Issue title <input value="This value is masked" /></label>
+          <button id="add-issue" class="primary">Add sample issue</button>
+          <ul id="issues"><li><span>MYL-42</span> Verify replay correlation</li></ul>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="/demo.js"></script>
+  </body>
+</html>

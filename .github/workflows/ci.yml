@@ -19,6 +19,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install replay build dependencies
+        run: npm ci
+
+      - name: Install E2E browser
+        run: npx playwright install --with-deps chromium
+
       - name: Generate isolated CI configuration
         run: npm run setup
 
@@ -26,10 +32,13 @@ jobs:
         run: npm test
 
       - name: Start the stack
-        run: docker compose up -d
+        run: docker compose up -d --build
 
       - name: Verify ingestion and provisioned dashboard
         run: npm run smoke
+
+      - name: Verify replay recording and playback
+        run: npm run e2e
 
       - name: Capture service logs on failure
         if: failure()

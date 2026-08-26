@@ -1,0 +1,19 @@
+:root { font-family: Inter, ui-sans-serif, system-ui; color: #20232a; background: #f4f5f7; }
+body { margin: 0; }
+main { max-width: 960px; margin: 48px auto; background: white; border: 1px solid #dfe3e8; border-radius: 10px; overflow: hidden; box-shadow: 0 18px 50px #28313d1a; }
+header { height: 54px; padding: 0 18px; display: flex; align-items: center; gap: 18px; border-bottom: 1px solid #e5e7eb; }
+header strong { color: #5c6ac4; }
+section { display: grid; grid-template-columns: 180px 1fr; min-height: 520px; }
+nav { padding: 16px 10px; border-right: 1px solid #e5e7eb; background: #fafafa; }
+nav button { width: 100%; padding: 10px; border: 0; border-radius: 6px; text-align: left; background: transparent; }
+nav button.active { background: #eceefe; color: #4353b3; font-weight: 650; }
+article { padding: 42px; }
+#session-status { color: #68707d; font-size: 13px; }
+h1 { margin: 18px 0 30px; font-size: 30px; }
+label { display: grid; gap: 8px; max-width: 420px; font-size: 13px; font-weight: 600; }
+input { height: 40px; padding: 0 12px; border: 1px solid #cbd0d8; border-radius: 6px; font: inherit; }
+.primary { margin-top: 14px; padding: 10px 14px; border: 0; border-radius: 6px; background: #5c6ac4; color: white; font-weight: 650; }
+ul { margin-top: 30px; padding: 0; list-style: none; border-top: 1px solid #e5e7eb; }
+li { padding: 15px 0; border-bottom: 1px solid #e5e7eb; }
+li span { display: inline-block; min-width: 70px; color: #7b8490; font: 12px ui-monospace, monospace; }
+@media (max-width: 640px) { main { margin: 0; border: 0; border-radius: 0; } section { grid-template-columns: 1fr; } nav { display: flex; border-right: 0; border-bottom: 1px solid #e5e7eb; } article { padding: 28px 20px; } }

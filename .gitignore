@@ -3,3 +3,6 @@
 .DS_Store
 node_modules/
 artifacts/
+replay/dist/
+playwright-report/
+test-results/

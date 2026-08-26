@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Replay</title>
+    <link rel="stylesheet" href="/assets/viewer.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true"></span>
+        <h1>Replay</h1>
+      </div>
+      <div class="topbar__status">
+        <span id="last-updated">Connecting…</span>
+        <button id="refresh-sessions" class="icon-button" type="button" aria-label="Refresh sessions">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="filters" aria-label="Replay filters">
+      <label>
+        <span>Project</span>
+        <select id="project-filter" data-all-label="All projects">
+          <option value="">All projects</option>
+        </select>
+      </label>
+      <label>
+        <span>Environment</span>
+        <select id="environment-filter" data-all-label="All environments">
+          <option value="">All environments</option>
+        </select>
+      </label>
+      <label class="search-field">
+        <span>Session</span>
+        <input id="session-search" type="search" placeholder="Search session ID" autocomplete="off" />
+      </label>
+    </section>
+
+    <main class="workspace">
+      <section class="player-panel" aria-labelledby="player-heading">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-heading__context">Selected recording</span>
+            <h2 id="player-heading">Session playback</h2>
+          </div>
+        </div>
+        <div id="player-stage" class="player-stage">
+          <p id="player-state">Select a recorded session.</p>
+        </div>
+      </section>
+
+      <aside class="session-panel" aria-labelledby="sessions-heading">
+        <div class="panel-heading panel-heading--compact">
+          <h2 id="sessions-heading">Sessions</h2>
+          <span id="list-state" aria-live="polite">Loading…</span>
+        </div>
+        <div id="session-list" class="session-list"></div>
+      </aside>
+
+      <aside class="details-panel" aria-labelledby="details-heading">
+        <div class="panel-heading panel-heading--compact">
+          <h2 id="details-heading">Session details</h2>
+        </div>
+        <dl id="session-details" class="details-list">
+          <div class="detail-row"><dt>Status</dt><dd>No session selected</dd></div>
+        </dl>
+        <div class="details-actions">
+          <a id="logs-link" class="primary-action" aria-disabled="true">View correlated logs</a>
+          <button id="delete-session" class="danger-action" type="button" disabled>Delete replay</button>
+        </div>
+        <p class="privacy-note">Inputs and text are masked before upload by default.</p>
+      </aside>
+    </main>
+
+    <script type="module" src="/assets/viewer.js"></script>
+  </body>
+</html>

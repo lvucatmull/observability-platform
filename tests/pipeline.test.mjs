@@ -17,9 +17,16 @@ test("Docker and OTLP inputs share the same query labels", () => {
 });
 
 test("ingress and UIs bind to loopback only", () => {
-  for (const port of ["3100", "3200", "4317", "4318", "12345"]) {
+  for (const port of ["3100", "3200", "3210", "4317", "4318", "12345"]) {
     assert.match(compose, new RegExp(`127\\.0\\.0\\.1:.*${port}`));
   }
+});
+
+test("replay storage requires generated credentials and a private volume", () => {
+  assert.match(compose, /REPLAY_INGEST_KEY:.*run npm run setup first/);
+  assert.match(compose, /REPLAY_VIEWER_PASSWORD:.*run npm run setup first/);
+  assert.match(compose, /replay-data:\/data/);
+  assert.match(compose, /REPLAY_RETENTION_DAYS/);
 });
 
 test("Docker logs pass through the secret filter", () => {

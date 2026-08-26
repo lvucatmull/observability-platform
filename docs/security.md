@@ -1,5 +1,17 @@
 # 보안과 운영 경계
 
+## 세션 리플레이
+
+- 녹화는 애플리케이션이 `enabled: true`와 `consent: true`를 모두 넘긴 경우에만 시작한다.
+- SDK 기본값은 모든 텍스트와 입력값 마스킹, 캔버스·이미지 인라인 수집 비활성이다.
+- collector는 DOM의 `href/src/action/poster` URL에서 query string과 fragment를 한 번 더 제거한다.
+- 비밀번호, 결제, 건강, 메시지 등 민감 영역은 `data-replay-block`으로 DOM 전체를 제외한다.
+- 수집 키와 뷰어 비밀번호는 `npm run setup`이 로컬 `.env`에 생성하며 Git에 넣지 않는다.
+- Electron renderer에 노출된 수집 키는 진정한 비밀로 간주할 수 없다. 팀/원격 운영에서는 preload → main IPC 프록시 뒤에 키를 보관하고 TLS 수집 엔드포인트로 전송한다.
+- 저장 데이터는 기본 7일 후 정리되며 뷰어에서 세션별 즉시 삭제할 수 있다.
+- 외부 이미지·폰트 요청은 플레이어 CSP에서 막아 재생 시 제3자 추적 요청이 다시 실행되지 않게 한다.
+- 현재 Basic 인증은 loopback 개발용이다. 원격 공유 전에는 OIDC 인증 프록시와 프로젝트별 권한 분리를 적용한다.
+
 ## 현재 기본값
 
 - Grafana 익명 접근과 사용자 가입 비활성화

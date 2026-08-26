@@ -60,7 +60,35 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  replay:
+    build:
+      context: .
+      dockerfile: replay/Dockerfile
+    environment:
+      REPLAY_HOST: "0.0.0.0"
+      REPLAY_PORT: "3210"
+      REPLAY_DATA_DIR: "/data"
+      REPLAY_GRAFANA_URL: "http://127.0.0.1:${GRAFANA_PORT:-3200}"
+      REPLAY_INGEST_KEY: "${REPLAY_INGEST_KEY:?run npm run setup first}"
+      REPLAY_VIEWER_USERNAME: "${REPLAY_VIEWER_USERNAME:-admin}"
+      REPLAY_VIEWER_PASSWORD: "${REPLAY_VIEWER_PASSWORD:?run npm run setup first}"
+      REPLAY_ALLOWED_ORIGINS: "${REPLAY_ALLOWED_ORIGINS:-http://127.0.0.1:5173,http://localhost:5173,null}"
+      REPLAY_RETENTION_DAYS: "${REPLAY_RETENTION_DAYS:-7}"
+    ports:
+      - "127.0.0.1:${REPLAY_PORT:-3210}:3210"
+    volumes:
+      - replay-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3210/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
 volumes:
   alloy-data:
   grafana-data:
   loki-data:
+  replay-data:

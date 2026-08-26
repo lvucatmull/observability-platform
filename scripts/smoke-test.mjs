@@ -21,6 +21,7 @@ const grafanaUrl = `http://127.0.0.1:${env.GRAFANA_PORT || 3200}`;
 const lokiUrl = `http://127.0.0.1:${env.LOKI_PORT || 3100}`;
 const alloyUrl = `http://127.0.0.1:${env.ALLOY_UI_PORT || 12345}`;
 const otlpUrl = `http://127.0.0.1:${env.OTLP_HTTP_PORT || 4318}`;
+const replayUrl = `http://127.0.0.1:${env.REPLAY_PORT || 3210}`;
 
 async function waitFor(name, check, timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
@@ -40,6 +41,7 @@ await Promise.all([
   waitFor("Grafana", async () => (await fetch(`${grafanaUrl}/api/health`)).ok),
   waitFor("Loki", async () => (await fetch(`${lokiUrl}/ready`)).ok),
   waitFor("Alloy", async () => (await fetch(`${alloyUrl}/-/ready`)).ok),
+  waitFor("Replay", async () => (await fetch(`${replayUrl}/healthz`)).ok),
 ]);
 
 const marker = `INFO observability smoke ${Date.now()}`;
@@ -77,4 +79,56 @@ if (!dashboardResponse.ok) {
   throw new Error(`Provisioned dashboard was not found (${dashboardResponse.status}).`);
 }
 
-console.log("Smoke test passed: Grafana, Loki, Alloy, OTLP ingestion, and dashboard are healthy.");
+const replayDashboardResponse = await fetch(
+  `${grafanaUrl}/api/dashboards/uid/session-replay-correlation`,
+  { headers: { authorization: `Basic ${credentials}` } },
+);
+if (!replayDashboardResponse.ok) {
+  throw new Error(`Replay correlation dashboard was not found (${replayDashboardResponse.status}).`);
+}
+
+const replaySessionId = `smoke_${Date.now()}`;
+const replayStartedAt = new Date().toISOString();
+const replayIngest = await fetch(`${replayUrl}/api/v1/replays/${replaySessionId}/batches`, {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    "x-replay-ingest-key": env.REPLAY_INGEST_KEY,
+  },
+  body: JSON.stringify({
+    project: "observability-platform",
+    service: "smoke-browser",
+    environment: "local",
+    startedAt: replayStartedAt,
+    events: [
+      {
+        type: 4,
+        timestamp: Date.now(),
+        data: { href: "http://127.0.0.1/smoke?secret=removed", width: 1280, height: 720 },
+      },
+      { type: 5, timestamp: Date.now() + 1, data: { tag: "smoke" } },
+    ],
+  }),
+});
+if (replayIngest.status !== 202) {
+  throw new Error(`Replay ingestion failed (${replayIngest.status}).`);
+}
+
+const replayCredentials = Buffer.from(
+  `${env.REPLAY_VIEWER_USERNAME}:${env.REPLAY_VIEWER_PASSWORD}`,
+).toString("base64");
+const replayRead = await fetch(`${replayUrl}/api/v1/replays/${replaySessionId}`, {
+  headers: { authorization: `Basic ${replayCredentials}` },
+});
+if (!replayRead.ok || (await replayRead.json()).events.length !== 2) {
+  throw new Error(`Replay read path failed (${replayRead.status}).`);
+}
+
+await fetch(`${replayUrl}/api/v1/replays/${replaySessionId}`, {
+  method: "DELETE",
+  headers: { authorization: `Basic ${replayCredentials}` },
+});
+
+console.log(
+  "Smoke test passed: logs, dashboards, replay ingestion, authenticated read, and correlation are healthy.",
+);

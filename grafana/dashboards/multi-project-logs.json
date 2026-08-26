@@ -17,6 +17,16 @@
       "title": "Open in Explore",
       "type": "link",
       "url": "/explore?schemaVersion=1&panes=%7B%22logs%22:%7B%22datasource%22:%22loki%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22expr%22:%22%7Bproject%3D~%5C%22$project%5C%22,service%3D~%5C%22$service%5C%22,environment%3D~%5C%22$environment%5C%22%7D%22,%22queryType%22:%22range%22%7D%5D%7D%7D&orgId=1"
+    },
+    {
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Open session replay",
+      "type": "link",
+      "url": "http://127.0.0.1:3210/"
     }
   ],
   "liveNow": true,

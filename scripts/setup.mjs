@@ -33,6 +33,16 @@ const values = {
   ALLOY_UI_PORT: current.get("ALLOY_UI_PORT") || "12345",
   OTLP_GRPC_PORT: current.get("OTLP_GRPC_PORT") || "4317",
   OTLP_HTTP_PORT: current.get("OTLP_HTTP_PORT") || "4318",
+  REPLAY_PORT: current.get("REPLAY_PORT") || "3210",
+  REPLAY_VIEWER_USERNAME: current.get("REPLAY_VIEWER_USERNAME") || "admin",
+  REPLAY_VIEWER_PASSWORD:
+    current.get("REPLAY_VIEWER_PASSWORD") || randomBytes(24).toString("base64url"),
+  REPLAY_INGEST_KEY:
+    current.get("REPLAY_INGEST_KEY") || randomBytes(32).toString("base64url"),
+  REPLAY_ALLOWED_ORIGINS:
+    current.get("REPLAY_ALLOWED_ORIGINS") ||
+    "http://127.0.0.1:5173,http://localhost:5173,null",
+  REPLAY_RETENTION_DAYS: current.get("REPLAY_RETENTION_DAYS") || "7",
 };
 
 const content = [

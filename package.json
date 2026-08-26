@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "setup": "node scripts/setup.mjs",
+    "build:replay": "node replay/build.mjs",
     "security:check": "node scripts/security-check.mjs",
     "validate": "node scripts/validate-config.mjs",
     "test": "node --test tests/*.test.mjs && npm run security:check && npm run validate",
-    "up": "docker compose up -d",
+    "e2e": "playwright test",
+    "up": "docker compose up -d --build",
     "down": "docker compose down",
     "logs": "docker compose logs -f",
     "emit": "node scripts/emit-otlp-log.mjs",
@@ -16,5 +18,13 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "rrweb": "2.1.1",
+    "rrweb-player": "2.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "esbuild": "0.28.2"
   }
 }
