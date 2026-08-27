@@ -99,12 +99,85 @@ test("replay API accepts, lists, retrieves, completes, and deletes a session", a
   });
   assert.equal(accepted.status, 202);
 
+  async function ingestFixture({ id, project, service, environment, offsetMs, completed = false }) {
+    const timestamp = Date.now() + offsetMs;
+    const response = await fetch(`${baseUrl}/api/v1/replays/${id}/batches`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-replay-ingest-key": ingestKey,
+      },
+      body: JSON.stringify({
+        project,
+        service,
+        environment,
+        startedAt: new Date(timestamp).toISOString(),
+        events: [
+          { type: 4, timestamp, data: { href: "http://example.test/fixture", width: 1280, height: 720 } },
+          { type: 5, timestamp: timestamp + 1, data: { tag: "fixture" } },
+        ],
+      }),
+    });
+    assert.equal(response.status, 202);
+    if (completed) {
+      const complete = await fetch(`${baseUrl}/api/v1/replays/${id}/complete`, {
+        method: "POST",
+        headers: { "x-replay-ingest-key": ingestKey },
+      });
+      assert.equal(complete.status, 200);
+    }
+  }
+
+  await ingestFixture({
+    id: "session_filter_spring_123",
+    project: "mylinear",
+    service: "spring-api",
+    environment: "test",
+    offsetMs: -100,
+  });
+  await ingestFixture({
+    id: "session_filter_airspace_123",
+    project: "airspace-replay",
+    service: "replay-worker",
+    environment: "local",
+    offsetMs: -200,
+    completed: true,
+  });
+
   const authorization = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-  const list = await fetch(`${baseUrl}/api/v1/replays?limit=10`, { headers: { authorization } });
+  const list = await fetch(`${baseUrl}/api/v1/replays?page=1&pageSize=2`, {
+    headers: { authorization },
+  });
   assert.equal(list.status, 200);
   const listed = await list.json();
-  assert.equal(listed.sessions[0].sessionId, sessionId);
-  assert.match(listed.sessions[0].logsUrl, /var-session_id=session_test_123456/);
+  assert.equal(listed.sessions.length, 2);
+  assert.deepEqual(listed.pagination, {
+    page: 1,
+    pageSize: 2,
+    total: 3,
+    totalPages: 2,
+    hasPrevious: false,
+    hasNext: true,
+  });
+  assert.deepEqual(listed.facets.projects, ["airspace-replay", "mylinear"]);
+  assert.ok(listed.sessions.some((session) => session.sessionId === sessionId));
+  assert.match(
+    listed.sessions.find((session) => session.sessionId === sessionId).logsUrl,
+    /var-session_id=session_test_123456/,
+  );
+
+  const secondPage = await fetch(`${baseUrl}/api/v1/replays?page=2&pageSize=2`, {
+    headers: { authorization },
+  }).then((response) => response.json());
+  assert.equal(secondPage.sessions.length, 1);
+  assert.equal(secondPage.pagination.hasPrevious, true);
+
+  const filtered = await fetch(
+    `${baseUrl}/api/v1/replays?project=mylinear&service=spring-api&environment=test&status=recording&q=spring&from=now-1h&to=now&pageSize=10`,
+    { headers: { authorization } },
+  ).then((response) => response.json());
+  assert.equal(filtered.pagination.total, 1);
+  assert.equal(filtered.sessions[0].sessionId, "session_filter_spring_123");
 
   const recording = await fetch(`${baseUrl}/api/v1/replays/${sessionId}`, {
     headers: { authorization },

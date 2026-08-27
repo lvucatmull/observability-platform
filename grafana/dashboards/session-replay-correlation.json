@@ -8,16 +8,29 @@
   "links": [
     {
       "icon": "external link",
-      "includeVars": false,
-      "keepTime": false,
+      "includeVars": true,
+      "keepTime": true,
       "targetBlank": true,
-      "title": "Open replay viewer",
+      "title": "Browse replay sessions",
       "type": "link",
       "url": "http://127.0.0.1:3210/?session=$session_id"
     }
   ],
   "liveNow": true,
   "panels": [
+    {
+      "description": "Open the self-hosted DOM replay catalog with the current Grafana product, service, environment, session, and time filters.",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "id": 4,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "## Recorded DOM sessions\nFilter the dashboard, then [browse matching session replays](http://127.0.0.1:3210/?var-project=$project&var-service=$service&var-environment=$environment&var-session_id=$session_id&from=$__from&to=$__to). The replay catalog adds status, text search, and server-side pagination.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "13.1.0",
+      "title": "Replay catalog",
+      "type": "text"
+    },
     {
       "datasource": { "type": "loki", "uid": "loki" },
       "description": "All log entries containing the selected session ID.",
@@ -31,7 +44,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 4 },
       "id": 1,
       "options": {
         "colorMode": "background",
@@ -68,7 +81,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 4 },
       "id": 2,
       "options": {
         "colorMode": "background",
@@ -95,7 +108,7 @@
     {
       "datasource": { "type": "loki", "uid": "loki" },
       "description": "Complete ordered log stream for the replay. The replay SDK exposes the ID as X-Session-ID for backend propagation.",
-      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 4 },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 8 },
       "id": 3,
       "options": {
         "dedupStrategy": "none",
@@ -181,6 +194,6 @@
   "timezone": "browser",
   "title": "Session replay correlation",
   "uid": "session-replay-correlation",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

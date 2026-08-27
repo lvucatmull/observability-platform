@@ -143,6 +143,34 @@ function normalizeTimestamp(value, name) {
   return date.toISOString();
 }
 
+function optionalQueryText(value, name, maxLength = 100) {
+  if (value == null || value === "") return undefined;
+  return normalizeText(value, name, maxLength);
+}
+
+function boundedInteger(value, fallback, minimum, maximum, name) {
+  if (value == null || value === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw httpError(400, `${name} must be between ${minimum} and ${maximum}.`);
+  }
+  return parsed;
+}
+
+function parseTimeBoundary(value, name) {
+  if (value == null || value === "") return undefined;
+  const relative = String(value).match(/^now(?:-(\d+)([smhdw]))?$/i);
+  if (relative) {
+    if (!relative[1]) return Date.now();
+    const units = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000 };
+    return Date.now() - Number(relative[1]) * units[relative[2].toLowerCase()];
+  }
+  const numeric = Number(value);
+  const timestamp = Number.isFinite(numeric) ? numeric : new Date(value).valueOf();
+  if (!Number.isFinite(timestamp)) throw httpError(400, `${name} is invalid.`);
+  return timestamp;
+}
+
 const urlAttributeNames = new Set([
   "action",
   "formaction",
@@ -329,24 +357,65 @@ async function completeSession(response, sessionId) {
 }
 
 async function listSessions(url, response) {
-  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 50)));
-  const project = url.searchParams.get("project");
-  const environment = url.searchParams.get("environment");
+  const legacyLimit = boundedInteger(url.searchParams.get("limit"), 20, 1, 200, "limit");
+  const pageSize = boundedInteger(url.searchParams.get("pageSize"), legacyLimit, 1, 100, "pageSize");
+  const requestedPage = boundedInteger(url.searchParams.get("page"), 1, 1, 1_000_000, "page");
+  const project = optionalQueryText(url.searchParams.get("project"), "project");
+  const service = optionalQueryText(url.searchParams.get("service"), "service");
+  const environment = optionalQueryText(url.searchParams.get("environment"), "environment");
+  const status = optionalQueryText(url.searchParams.get("status"), "status", 40);
+  const query = optionalQueryText(url.searchParams.get("q"), "q", 120)?.toLowerCase();
+  const from = parseTimeBoundary(url.searchParams.get("from"), "from");
+  const to = parseTimeBoundary(url.searchParams.get("to"), "to");
+  if (from != null && to != null && from > to) throw httpError(400, "from must not be after to.");
   const entries = await readdir(sessionsDir, { withFileTypes: true });
-  const sessions = [];
+  const availableSessions = [];
   for (const entry of entries) {
     if (!entry.isFile() || extname(entry.name) !== ".json") continue;
     try {
       const metadata = JSON.parse(await readFile(resolve(sessionsDir, entry.name), "utf8"));
-      if (project && metadata.project !== project) continue;
-      if (environment && metadata.environment !== environment) continue;
-      sessions.push(publicMetadata(metadata));
+      const startedAt = new Date(metadata.startedAt).valueOf();
+      const endedAt = new Date(metadata.endedAt).valueOf();
+      if (from != null && endedAt < from) continue;
+      if (to != null && startedAt > to) continue;
+      availableSessions.push(publicMetadata(metadata));
     } catch {
       // A partial or corrupt metadata file is skipped and remains visible to the filesystem audit.
     }
   }
+  const facets = {
+    projects: [...new Set(availableSessions.map((session) => session.project))].sort(),
+    services: [...new Set(availableSessions.map((session) => session.service))].sort(),
+    environments: [...new Set(availableSessions.map((session) => session.environment))].sort(),
+    statuses: [...new Set(availableSessions.map((session) => session.status))].sort(),
+  };
+  const sessions = availableSessions.filter((session) => {
+    if (project && session.project !== project) return false;
+    if (service && session.service !== service) return false;
+    if (environment && session.environment !== environment) return false;
+    if (status && session.status !== status) return false;
+    if (!query) return true;
+    return [session.sessionId, session.project, session.service, session.environment, session.status]
+      .some((value) => String(value).toLowerCase().includes(query));
+  });
   sessions.sort((left, right) => new Date(right.endedAt) - new Date(left.endedAt));
-  sendJson(response, 200, { sessions: sessions.slice(0, limit), retentionDays });
+  const total = sessions.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const start = (page - 1) * pageSize;
+  sendJson(response, 200, {
+    sessions: sessions.slice(start, start + pageSize),
+    facets,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages,
+    },
+    retentionDays,
+  });
 }
 
 async function getSession(response, sessionId) {

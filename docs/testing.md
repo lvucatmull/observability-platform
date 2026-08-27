@@ -41,6 +41,7 @@ npm test
 - Docker Compose 구문
 - replay 동의·마스킹·샘플링·inactivity 계약
 - replay API 인증·Origin·payload·retention 계약
+- replay API project/service/environment/status/time 필터, 통합 검색, 페이지네이션 계약
 - session_id correlation dashboard 계약
 
 ### 통합 smoke test

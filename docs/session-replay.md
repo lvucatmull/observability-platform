@@ -2,7 +2,7 @@
 
 ## 범위와 provider 경계
 
-현재 self-hosted Grafana, Alloy, Loki는 Faro 로그·오류·trace 수집은 처리하지만 리플레이 녹화 저장소와 플레이어를 제공하지 않는다. Grafana Session Replay는 Grafana Cloud Frontend Observability의 공개 프리뷰 기능이다. 이 기반은 특정 Cloud 계정 없이 로컬에서 녹화와 재생을 검증하기 위해 rrweb 수집 계층을 별도로 두고, 관측성 제품 간 결합점은 `session_id` 하나로 제한한다.
+현재 self-hosted Grafana, Alloy, Loki는 Faro 로그·오류·trace 수집은 처리하지만 리플레이 녹화 저장소와 플레이어를 제공하지 않는다. Grafana Session Replay는 Grafana Cloud Frontend Observability의 공개 프리뷰 기능이다. 이 기반은 특정 Cloud 계정 없이 로컬에서 녹화와 재생을 검증하기 위해 rrweb 수집 계층을 별도로 두고, 관측성 제품 간 결합점은 `session_id` 하나로 제한한다. 세션 카탈로그와 플레이어는 Grafana 패널이 아니라 `http://127.0.0.1:3210`의 독립 웹 애플리케이션이며, Grafana는 선택 문맥을 넘기는 진입 링크와 상관 로그 탐색만 담당한다.
 
 Grafana Cloud Replay로 바꿀 때도 애플리케이션과 백엔드의 `session_id` 전파 계약은 유지한다. 바뀌는 부분은 브라우저 녹화 provider와 플레이어 URL뿐이다.
 
@@ -41,7 +41,7 @@ sequenceDiagram
 | Browser SDK | 동의·샘플링, DOM 변경 캡처, 마스킹, 배치 | 앱 기능은 계속 동작하고 `onError`만 호출 |
 | Replay collector | 인증, Origin 제한, 크기·필드 검증, append | 잘못된 배치는 거부하고 기존 녹화 보존 |
 | Replay store | 세션 metadata와 event batch 영속화 | 손상 metadata는 목록에서 제외하고 파일 보존 |
-| Replay viewer | 목록·검색·재생·삭제·로그 이동 | 마지막 목록을 유지하고 연결 오류 표시 |
+| Replay viewer | 목록·필터·검색·페이지 이동·재생·삭제·로그 이동 | 현재 URL 상태를 유지하고 연결 오류 표시 |
 | Correlation dashboard | session_id가 포함된 로그 시간순 조회 | 로그가 없으면 0/빈 스트림으로 명시 |
 
 ## 화면 와이어프레임
@@ -50,17 +50,17 @@ sequenceDiagram
 
 ```text
 ┌ Replay ───────────────────────────── Updated 14:32 ↻ ┐
-├ Project ▾  Environment ▾  Search session ID         ┤
+├ Project ▾ Service ▾ Environment ▾ Status ▾ Search   ┤
 ├──────────────┬───────────────────────────┬───────────┤
 │ Sessions     │ Session playback          │ Details   │
 │ selected     │                           │ project   │
 │ recent       │      rrweb viewport       │ service   │
 │ recent       │                           │ session   │
-│              │      play · time · 1x     │ [logs]    │
+│ [‹] 1/4 [›]  │      play · time · 1x     │ [logs]    │
 └──────────────┴───────────────────────────┴───────────┘
 ```
 
-모바일 portrait에서는 재생 → 세션 목록 → 상세 순으로 바뀐다. 필터는 가로 스크롤 영역에 두고 재생 화면보다 먼저 긴 설정 목록을 쌓지 않는다. 필수 값은 hover 없이 보이며 새로고침은 44px 터치 영역을 사용한다.
+모바일 portrait에서는 필터 → 재생 → 세션 목록 → 상세 순으로 바뀐다. 필터는 2열로 접고 검색은 전체 너비를 사용해 가로 스크롤 없이 project/service/environment/status/search를 모두 노출한다. 필수 값은 hover 없이 보이며 새로고침은 44px 터치 영역을 사용한다.
 
 ## 로컬 확인
 
@@ -74,6 +74,20 @@ docker compose up -d --build
 3. `Add sample issue`를 누른 뒤 탭을 닫거나 다른 페이지로 이동해 batch를 완료한다.
 4. `http://127.0.0.1:3210`에서 세션을 선택해 재생한다.
 5. `View correlated logs`로 Grafana 상세 화면이 같은 세션 ID를 받는지 확인한다.
+
+## 목록 조회 계약
+
+Grafana의 `Replay catalog` 패널과 상단 `Browse replay sessions` 링크는 현재 `project / service / environment / session_id / from / to`를 독립 viewer URL에 전달한다. Viewer는 Grafana의 `var-*` 형식과 자체 URL 형식을 모두 받아 다음 API로 정규화한다. 필터·검색·페이지 상태는 viewer URL에 남으므로 새로고침과 링크 공유 뒤에도 같은 목록을 복원한다.
+
+```http
+GET /api/v1/replays?project=mylinear&service=electron-renderer&environment=local&status=completed&q=issue&page=2&pageSize=10&from=now-1h&to=now
+```
+
+- 검색 대상: `sessionId`, project, service, environment, status
+- 시간 판정: 세션 구간이 `from..to`와 겹치는지 확인
+- 페이지 크기: 10, 20, 50 UI 선택; API 최대 100
+- 응답: 현재 page의 sessions, 전체 total/totalPages, 이전·다음 여부, 필터 facet
+- 저장소: 기존 metadata JSON과 event NDJSON을 유지하며 목록 API만 서버 측으로 자른다. 따라서 S3 없이 현재 Docker volume에서 동작한다.
 
 ## Browser / Electron renderer 연결
 

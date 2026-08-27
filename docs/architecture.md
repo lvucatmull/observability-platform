@@ -92,7 +92,7 @@ Alloy는 position을 저장하므로 재시작 후에도 가능한 한 읽던 �
 - 첫 화면: stat 3개, 시계열 1개, 심각도 근사 1개
 - 상세 화면: 최신 오류와 전체 로그 패널
 - 렌더러: 로그는 Grafana 기본 패널, replay는 단일 rrweb-player 인스턴스다.
-- replay 목록: 최대 200건, 수동 새로고침, URL-backed filter와 선택 session
+- replay 목록: project/service/environment/status와 통합 검색, URL-backed 선택 session, 서버 측 10/20/50건 페이지네이션
 - replay SDK: 100건/5초 batch, 60초 비활성 pause, 브라우저 viewport별 단일 recorder
 - 쿼리 비용 제어: 시간 범위와 저카디널리티 라벨을 먼저 적용하고 본문 정규식은 그 다음에 평가한다.
 

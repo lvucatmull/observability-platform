@@ -3,14 +3,17 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 let recordedSessionId;
+const createdSessionIds = new Set();
 
 test.afterEach(async ({ request }) => {
-  if (recordedSessionId) {
-    await request.delete(`/api/v1/replays/${encodeURIComponent(recordedSessionId)}`);
+  for (const sessionId of createdSessionIds) {
+    await request.delete(`/api/v1/replays/${encodeURIComponent(sessionId)}`);
   }
+  createdSessionIds.clear();
+  recordedSessionId = undefined;
 });
 
-test("records a masked interaction, replays it, and links correlated logs", async ({ page }) => {
+test("records, filters, paginates, replays, and links correlated logs", async ({ page, request }) => {
   const consoleProblems = [];
   let sandboxBlocks = 0;
   page.on("console", (message) => {
@@ -39,15 +42,57 @@ test("records a masked interaction, replays it, and links correlated logs", asyn
   await page.waitForTimeout(1_000);
   const status = await page.locator("#session-status").innerText();
   recordedSessionId = status.replace("Recording ", "").trim();
+  createdSessionIds.add(recordedSessionId);
   expect(recordedSessionId, consoleProblems.join(" | ")).toMatch(/^[a-f0-9-]{36}$/);
 
   await page.getByRole("button", { name: "Add sample issue" }).click();
   await expect(page.getByText("Recorded interaction")).toBeVisible();
   await page.waitForTimeout(5_500);
 
+  const recordedPayload = await request
+    .get(`/api/v1/replays/${encodeURIComponent(recordedSessionId)}`)
+    .then((response) => response.json());
+  for (let index = 0; index < 11; index += 1) {
+    const sessionId = `catalog_${Date.now()}_${String(index).padStart(2, "0")}`;
+    const offset = (index + 1) * 1_000;
+    const events = structuredClone(recordedPayload.events).map((event) => ({
+      ...event,
+      timestamp: event.timestamp - offset,
+    }));
+    const response = await request.post(`/api/v1/replays/${sessionId}/batches`, {
+      data: {
+        project: index < 3 ? "airspace-replay" : "replay-demo",
+        service: index < 3 ? "replay-worker" : "browser",
+        environment: index % 2 ? "test" : "local",
+        startedAt: new Date(new Date(recordedPayload.session.startedAt).valueOf() - offset).toISOString(),
+        events,
+      },
+    });
+    expect(response.status()).toBe(202);
+    createdSessionIds.add(sessionId);
+    if (index % 2 === 0) {
+      await request.post(`/api/v1/replays/${sessionId}/complete`);
+    }
+  }
+
   await page.goto("/");
   await expect(page).toHaveTitle("Replay");
-  await page.getByPlaceholder("Search session ID").fill(recordedSessionId);
+  await expect(page.getByLabel("Sessions per page")).toHaveValue("10");
+  await expect(page.locator("#page-state")).toHaveText("Page 1 of 2");
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.locator("#page-state")).toHaveText("Page 2 of 2");
+  await expect(page).toHaveURL(/page=2/);
+  await page.getByRole("button", { name: "Previous" }).click();
+  await expect(page.locator("#page-state")).toHaveText("Page 1 of 2");
+
+  await page.locator("#project-filter").selectOption("airspace-replay");
+  await expect(page.locator("#list-state")).toHaveText("3 sessions");
+  await expect(page.locator(".session-row")).toHaveCount(3);
+  await expect(page).toHaveURL(/project=airspace-replay/);
+
+  await page.locator("#project-filter").selectOption("");
+  await page.getByPlaceholder("Session, project, service or status").fill(recordedSessionId);
+  await expect(page.locator("#list-state")).toHaveText("1 session");
   await page.getByRole("button", { name: new RegExp(recordedSessionId) }).click();
   const replayFrame = page.locator(".rr-player iframe");
   await expect(replayFrame).toBeVisible();

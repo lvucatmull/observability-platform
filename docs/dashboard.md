@@ -8,6 +8,8 @@
 2. 해당 세션의 오류 수
 3. 시간순 전체 로그 원문
 
+대시보드 첫 패널 `Replay catalog`와 상단 `Browse replay sessions` 링크는 반대 방향의 이동을 제공한다. Grafana에서 선택한 project/service/environment/session과 시간 범위를 self-hosted viewer로 넘기며, viewer에서 status·통합 검색·페이지네이션을 추가 적용한 뒤 DOM 녹화를 선택한다. Grafana Text panel 안에 player iframe을 직접 넣지 않는 이유는 HTML sanitization과 replay sandbox/auth 경계를 약화시키지 않기 위해서다.
+
 `session_id`는 사용자·요청별 고카디널리티 값이므로 Loki 인덱스 라벨로 승격하지 않는다. JSON 필드, structured metadata 또는 로그 본문에 포함하고 선택된 프로젝트·서비스·환경 범위 안에서 본문 필터로 평가한다.
 
 ## 분석 목적
